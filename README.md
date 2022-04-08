@@ -1,2 +1,2 @@
 # Diploma
-Diploma work; Both paper and source code
+My graduation thesis on the theme “Generalized Cross Validation Smoothing Splines”.
