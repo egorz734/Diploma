@@ -1,2 +1,2 @@
 # Diploma
-My graduation thesis on the theme “Generalized Cross Validation Smoothing Splines”.
+My graduation thesis “Generalized Cross Validation Smoothing Splines”.
