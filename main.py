@@ -36,6 +36,8 @@ def _make_design_matrix(x, t):
     ----------
     x : array_like, shape (n,)
         Abscissas.
+    t : array_like, shape (nt,)
+        Sorted 1D array of knots.
 
     Returns
     -------
@@ -69,6 +71,37 @@ def _make_design_matrix(x, t):
     Q[:,-2] = X[:,-3] + X[:,-2] + X[:,-1]
     Q[:,-1] = (t[-4]-t[-6])*X[:,-2]+(2*t[-4]-t[-5]-t[-6])*X[:,-1]
     return Q
+
+def _make_penalty_matrix(x, w):
+    '''
+    Returns a penalty matrix for the generalized cross-validation
+    smoothing splines.
+
+    Parameters
+    ----------
+    x : array_like, shape (n,)
+        Abscissas.
+    w : array_like, shape (n, n)
+        Vector of weights.
+    
+    Returns
+    -------
+    E : array_like, shape (n, n)
+        Penalty matrix.
+    '''
+    n = len(x)
+    E = np.zeros((n, n))
+    E[:3,0] = _coeff_of_devided_diff(x[:3])
+    E[:4,1] = _coeff_of_devided_diff(x[:4])
+    for j in range(2, n - 2):
+        E[j-2:j+3, j] = (x[j+2]-x[j-2])*_coeff_of_devided_diff(x[j-2:j+3])
+    E[-4:, -2] = -_coeff_of_devided_diff(x[-4:])
+    E[-3:, -1] =  _coeff_of_devided_diff(x[-3:])
+
+    for i in range(n):
+        E[i] *= 6. * w[i, i]
+    
+    return E
 
 def make_smoothing_spline(x, y, w=None):
     '''
@@ -111,18 +144,7 @@ def make_smoothing_spline(x, y, w=None):
 
     t = np.r_[[x[0]]*3,x,[x[-1]]*3]
     X = _make_design_matrix(x, t)
-
-    n = len(x)
-    E = np.zeros((n, n))
-    E[:3,0] = _coeff_of_devided_diff(x[:3])
-    E[:4,1] = _coeff_of_devided_diff(x[:4])
-    for j in range(2, n - 2):
-        E[j-2:j+3, j] = (x[j+2]-x[j-2])*_coeff_of_devided_diff(x[j-2:j+3])
-    E[-4:, -2] = -_coeff_of_devided_diff(x[-4:])
-    E[-3:, -1] =  _coeff_of_devided_diff(x[-3:])
-
-    for i in range(n):
-        E[i] *= 6. / w[i, i]
+    E = _make_penalty_matrix(x, w)
 
     p = _compute_optimal_gcv_parameter(X, E, y, w)
     func = _make_spline(X, E, t, y, p, w)
@@ -139,6 +161,8 @@ def _make_spline(X, E, t, y, p, w):
         Design matrix in the Woltring basis
     E : array_like, shape (n, n)
         Matrix representation of the penalty function
+    t : array_like, shape (nt,)
+        Sorted 1D array of knots.
     y : array_like, shape (n,)
         Ordinates.
     p : float
