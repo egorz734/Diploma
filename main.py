@@ -69,10 +69,7 @@ def _prepare_input(x, y=None, w=None):
     if w is None:
         w = [1.] * len(x)
     w = np.ascontiguousarray(w)
-    if all(w > 0):
-        # inverse the matrix of weights
-        w = 1. / w
-    else:
+    if any(w <= 0):
         raise ValueError('Invalid vector of weights')
 
     t = np.r_[[x[0]] * 3, x, [x[-1]] * 3]
@@ -143,7 +140,7 @@ def _make_design_matrix(x):
 def _make_penalty_matrix(x, w=None):
     '''
     Returns a penalty matrix for the generalized cross-validation
-    smoothing splines.
+    smoothing spline.
 
     Parameters
     ----------
@@ -154,8 +151,8 @@ def _make_penalty_matrix(x, w=None):
     
     Returns
     -------
-    E : array_like, shape (n, n)
-        Penalty matrix.
+    E : array_like, shape (5, n)
+        Penalty matrix. Matrix is stored in the diagonal way.
     
     Notes
     -----
@@ -167,20 +164,20 @@ def _make_penalty_matrix(x, w=None):
 
     n = x.shape[0]
     ab = np.zeros((5, n))
-    ab[2:, 0] = _coeff_of_divided_diff(x[:3]) * w[:3]
-    ab[1:, 1] = _coeff_of_divided_diff(x[:4]) * w[:4]
+    ab[2:, 0] = _coeff_of_divided_diff(x[:3]) / w[:3]
+    ab[1:, 1] = _coeff_of_divided_diff(x[:4]) / w[:4]
     for j in range(2, n - 2):
-        ab[:, j] = (x[j+2]-x[j-2])*_coeff_of_divided_diff(x[j-2:j+3]) * w[j-2: j+3]
+        ab[:, j] = (x[j+2]-x[j-2])*_coeff_of_divided_diff(x[j-2:j+3]) / w[j-2: j+3]
 
-    ab[:-1, -2] = -_coeff_of_divided_diff(x[-4:]) * w[-4:]
-    ab[:-2, -1] = _coeff_of_divided_diff(x[-3:]) * w[-3:]
+    ab[:-1, -2] = -_coeff_of_divided_diff(x[-4:]) / w[-4:]
+    ab[:-2, -1] = _coeff_of_divided_diff(x[-3:]) / w[-3:]
     ab *= 6
 
     return ab
 
 def make_smoothing_spline(x, y, w=None):
     '''
-    Returns a smoothing spline function using the GCV criteria.
+    Returns a smoothing cubic spline function using the GCV criteria.
 
     Parameters
     ----------
@@ -202,7 +199,7 @@ def make_smoothing_spline(x, y, w=None):
     -----
     GCV - generalized cross-validation.
     '''
-    x, y, w, t = _prepare_input(x, y, w)    
+    x, y, w, _ = _prepare_input(x, y, w)    
 
     p = _compute_optimal_gcv_parameter(x, y, w)
     func = _make_spline(x, y, p, w)
@@ -274,7 +271,7 @@ def _compute_optimal_gcv_parameter(x, y, w=None):
         parameter.
     '''
 
-    x, y, w, t = _prepare_input(x, y, w)
+    x, y, w, _ = _prepare_input(x, y, w)
     
     X = _make_design_matrix(x)
     E = _make_penalty_matrix(x, w)
